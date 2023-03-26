@@ -1,0 +1,10 @@
+^C:\USERS\JHBAR\PROGRAMMING\COMPILEME\BLD\CMAKEFILES\942F2CB2F162C73F9A41D32EDDE46E77\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Jhbar/programming/compileme -BC:/Users/Jhbar/programming/compileme/bld --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Jhbar/programming/compileme/bld/compilerinC.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
