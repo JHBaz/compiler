@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdlib.h>
 
 long file_size(FILE *file) {
     if (!file) {return 0; }
@@ -54,6 +55,7 @@ void print_usage(char **argv) {
 typedef struct Error {
     enum ErrorType {
         ERROR_NONE = 0,
+        ERROR_ARGUMENTS,
         ERROR_TYPE, 
         ERROR_GENERIC,
         ERROR_SYNTAX,
@@ -66,12 +68,73 @@ typedef struct Error {
 
 Error ok = { ERROR_NONE, NULL };
 
-Error lex(char *source, char **beg, char **end) { // beg and end of token
-    return ok;
+void print_error(Error err) {
+    if (err.type == ERROR_NONE) {
+        return;
+    }
+    printf("ERROR: ");
+    switch (err.type) {
+        default:
+            printf("Unknown error type...");
+            break;
+        case ERROR_TODO:
+            printf("TODO (not implemented)");
+            break;
+        case ERROR_SYNTAX:
+            printf("invalid syntax");
+            break;
+        case ERROR_TYPE:
+            printf("Mismatched types");
+            break;
+        case ERROR_ARGUMENTS:
+            printf("invalid arguments");
+            break;
+        case ERROR_NONE:
+            break;
+        case ERROR_GENERIC:
+            break;
+    }
+    putchar('\n');
+    if (err.msg) {
+        printf("  : %s\n", err.msg);
+    }
 }
 
+#define ERROR_CREATE(n, t, msg)         \
+    Error(n) = { (t), (msg) }
 
-//parser
+#define ERROR_PREP(n, t, message)       \
+    (n).type = (t);                     \
+    (n).msg = (message);
+
+const char *whitespace = " \r\n";
+const char *delimiters = " \r\n:";
+
+// lex tokens
+Error lex(char *source, char **beg, char **end) {
+    Error err = ok;
+    if (!source || !beg || !end) {
+        ERROR_PREP(err, ERROR_ARGUMENTS, "Can not lex empty source.");
+        return err;
+    }
+    *beg = source;
+    *beg += strspn(*beg, whitespace);
+    *end = *beg;
+    *end += strcspn(*beg, delimiters);
+    printf("lexed: %.*s", *end - *beg, *beg);
+    return err;
+}
+
+Error parse_expr(char *source) {
+    char *beg = source;
+    char *end = source;
+    Error err = ok;
+    while ((err = lex(end, &beg, &end)).type == ERROR_NONE) {
+        if (end - beg == 0) { break; }
+        printf("lexed: %.*s\n", end - beg, beg);
+    }
+    return err;
+}
 
 int main (int argc, char **argv) {
     if (argc < 2) {
@@ -83,7 +146,15 @@ int main (int argc, char **argv) {
     char *contents = file_contents(path);
     if (contents) {
         printf("Contents of %s: \n---\n\"%s\"\n---\n", path, contents);
+
+        Error err = parse_expr(contents);
+        print_error(err);
+
         free(contents);
     }
+
     return 0;
 }
+
+
+//1:37:52 part 1
