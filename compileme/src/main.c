@@ -59,7 +59,8 @@ typedef struct Error {
         ERROR_TYPE, 
         ERROR_GENERIC,
         ERROR_SYNTAX,
-        ERROR_TODO
+        ERROR_TODO,
+        ERROR_MAX
     } type;
     char *msg;
 } Error;
@@ -73,6 +74,7 @@ void print_error(Error err) {
         return;
     }
     printf("ERROR: ");
+    assert(ERROR_MAX == 6);
     switch (err.type) {
         default:
             printf("Unknown error type...");
@@ -108,9 +110,9 @@ void print_error(Error err) {
     (n).msg = (message);
 
 const char *whitespace = " \r\n";
-const char *delimiters = " \r\n:";
+const char *delimiters = " \r\n,():";
 
-// lex tokens
+// lex the next token from source and point to it eith begin and end
 Error lex(char *source, char **beg, char **end) {
     Error err = ok;
     if (!source || !beg || !end) {
@@ -120,12 +122,56 @@ Error lex(char *source, char **beg, char **end) {
     *beg = source;
     *beg += strspn(*beg, whitespace);
     *end = *beg;
+    if (**end == '\0') { return err; }
     *end += strcspn(*beg, delimiters);
-    printf("lexed: %.*s", *end - *beg, *beg);
+    if (*end == *beg) {
+        *end += 1;
+    }
     return err;
 }
 
-Error parse_expr(char *source) {
+// TODO: 
+// |-- API to create new node
+//  -- API to add noe as child
+typedef long long integer_t;
+typedef struct Node {
+    enum NodeType {
+        NODE_TYPE_NONE,
+        NODE_TYPE_INTEGER,
+        NODE_TYPE_PROGRAM,
+        NODE_TYPE_MAX
+    } type;
+    union NodeValue {
+        integer_t integer;
+    } value;
+
+    struct Node **children;
+
+} Node;
+
+#define nonep(node) ((node).type == NODE_TYPE_NONE)
+#define integer(node) ((node).type == NODE_TYPE_INTEGER)
+
+
+//TODO:
+// |-- API to create new Binding
+//  -- API to add Binding to and exising environment
+typedef struct Binding {
+    char *id;
+    Node *value;
+    struct Binding *next;
+} Binding;
+
+typedef struct Environment {
+    struct Environment *parent;
+    Binding *bind;
+} Environment;
+
+void environment_set () {
+
+}
+
+Error parse_expr(char *source, Node *result) {
     char *beg = source;
     char *end = source;
     Error err = ok;
@@ -145,16 +191,13 @@ int main (int argc, char **argv) {
     char *path = argv[1];
     char *contents = file_contents(path);
     if (contents) {
-        printf("Contents of %s: \n---\n\"%s\"\n---\n", path, contents);
+        //printf("Contents of %s: \n---\n\"%s\"\n---\n", path, contents);
 
-        Error err = parse_expr(contents);
+        Node expression;
+        Error err = parse_expr(contents, &expression);
         print_error(err);
 
         free(contents);
     }
-
     return 0;
 }
-
-
-//1:37:52 part 1
