@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 long file_size(FILE *file) {
     if (!file) {return 0; }
@@ -112,20 +113,57 @@ void print_error(Error err) {
 const char *whitespace = " \r\n";
 const char *delimiters = " \r\n,():";
 
+typedef struct Token {
+    char *beginning;
+    char *end;
+    struct Token *next;
+} Token;
+
+
+Token *token_create() {
+    Token *token = malloc(sizeof(Token));
+    assert((token && "Could not allocate memory for token"));
+    memset(token, 0, sizeof(Token));
+    return token;
+}
+
+void free_tokens(Token *root) {
+    //free tokens in the list
+    while (root) {
+        Token *token_to_free = root;
+        root = root->next;
+        free(token_to_free);
+    }
+}
+
+void print_tokens(Token *root) {
+    size_t count = 1;
+    while (root) {
+        printf("Token %zu ", count);
+        if (root->beginning && root->end) {
+            printf("%.*s", root->end - root->beginning, root->beginning);
+        }
+        putchar('\n');
+        root = root->next;
+        count++;
+    }
+}
+
+
 // lex the next token from source and point to it eith begin and end
-Error lex(char *source, char **beg, char **end) {
+Error lex(char *source, Token *token) {
     Error err = ok;
-    if (!source || !beg || !end) {
+    if (!source || !token) {
         ERROR_PREP(err, ERROR_ARGUMENTS, "Can not lex empty source.");
         return err;
     }
-    *beg = source;
-    *beg += strspn(*beg, whitespace);
-    *end = *beg;
-    if (**end == '\0') { return err; }
-    *end += strcspn(*beg, delimiters);
-    if (*end == *beg) {
-        *end += 1;
+    token->beginning = source;
+    token->beginning += strspn(token->beginning, whitespace);
+    token->end = token->beginning;
+    if (*(token->end) == '\0') { return err; }
+    token->end += strcspn(token->beginning, delimiters);
+    if (token->end == token->beginning) {
+        token->end += 1;
     }
     return err;
 }
@@ -144,14 +182,22 @@ typedef struct Node {
     union NodeValue {
         integer_t integer;
     } value;
-
     struct Node **children;
-
 } Node;
 
 #define nonep(node) ((node).type == NODE_TYPE_NONE)
 #define integer(node) ((node).type == NODE_TYPE_INTEGER)
 
+void node_free(Node *root) {
+    if (root->children) {
+        Node *child = *(root->children);
+        while(child) {
+            node_free(root->children);
+            child++;
+        }
+    }
+    free(root);
+}
 
 //TODO:
 // |-- API to create new Binding
@@ -171,18 +217,72 @@ void environment_set () {
 
 }
 
-Error parse_expr(char *source, Node *result) {
-    char *beg = source;
-    char *end = source;
-    Error err = ok;
-    while ((err = lex(end, &beg, &end)).type == ERROR_NONE) {
-        if (end - beg == 0) { break; }
-        printf("lexed: %.*s\n", end - beg, beg);
+//@return Boolean-like value; 1 succ, 0 fail
+int token_string_equalp(char* string, Token *token) {
+    if (!string || !token->beginning || !token->end) { return 0;}
+    char *beg = token->beginning;
+    while(*string && token->beginning < token->end) {
+        if (*string != *beg) {
+            return 0;
+        }
+        string++;
+        beg++;
     }
+    return 1;
+}
+
+Error parse_expr(char *source, Node *result) {
+    Token *tokens = NULL;
+    Token *token_it = tokens;
+    Token current_token;
+    current_token.next = NULL;
+    current_token.beginning = source;
+    current_token.end = source;
+    Error err = ok;
+    while ((err = lex(current_token.end, &current_token)).type == ERROR_NONE) {
+        if (current_token.end - current_token.beginning == 0) { break; }
+        //conditional branch could be removed from the loop
+        if (tokens) {
+            // overwrite tokens ->next
+            token_it->next = token_create();
+            memcpy(token_it->next, &current_token, sizeof(Token));
+            token_it = token_it->next;
+        } else {
+            // overwrite tokens
+            tokens = token_create();
+            memcpy(tokens, &current_token, sizeof(Token));
+            token_it = tokens;
+        }
+    }
+
+    print_tokens(tokens);
+
+    Node *root = calloc(1, sizeof(Node));
+    assert(root && "Could not allocate memory for AST Node");
+    token_it = tokens;
+    while (token_it) {
+        //TODO: Map constrcuts from the lang and attempt to create nodes
+
+        if (token_string_equalp(":", token_it)) {
+            printf("Found ':' at token\n");
+            if (token_it->next && token_string_equalp("=", token_it->next)) {
+                printf("Found assignment\n");
+            } else if (token_string_equalp("integer", token_it->next)) {
+                //TODO: make helper to check if string is type name
+                printf("Found a var declaration\n");
+            }
+        }
+        
+        token_it = token_it->next;
+    }
+
+
+    free_tokens(tokens);
     return err;
 }
 
-int main (int argc, char **argv) {
+int main (int argc, char **argv) 
+{
     if (argc < 2) {
         print_usage(argv);
         exit(0);
@@ -201,3 +301,6 @@ int main (int argc, char **argv) {
     }
     return 0;
 }
+
+
+// 1:12:29
