@@ -127,7 +127,7 @@ Token *token_create() {
     return token;
 }
 
-void free_tokens(Token *root) {
+void tokens_free(Token *root) {
     //free tokens in the list
     while (root) {
         Token *token_to_free = root;
@@ -182,19 +182,59 @@ typedef struct Node {
     union NodeValue {
         integer_t integer;
     } value;
-    struct Node **children;
+    // maybe parent?
+    struct Node *children;
+    struct Node *next_child;
 } Node;
+
+void print_node_impl(Node *node) {
+    if(!node) { return; }
+    //print type + value
+    assert(NODE_TYPE_MAX == 3 && " print_node() must handle all node types");
+    switch (node->type) {
+        default:
+            printf("UNKNOWN");
+        case NODE_TYPE_NONE:
+            printf("NONE");
+            break;
+        case NODE_TYPE_INTEGER:
+            printf("INT:%lld", node->value.integer);
+            break;
+        case NODE_TYPE_PROGRAM:
+            printf("PROGRAM");
+            break;
+    }
+}
+
+void print_node(Node *node, size_t indent_level) {
+    if(!node) { return; }
+    //print indent
+    //gcc main.c -o main -std=c99
+    for (size_t i = 0; i < indent_level; ++i) {
+        putchar(' ');
+    }
+    print_node_impl(node);
+    putchar('\n');
+    //print children
+    Node *child = node->children;
+    while(child) {
+        print_node(child, indent_level + 4);
+        child = child->next_child;
+    }
+}
 
 #define nonep(node) ((node).type == NODE_TYPE_NONE)
 #define integer(node) ((node).type == NODE_TYPE_INTEGER)
 
+// make more efficient, maybe keeping track of allocated pointers then free all in one go?
 void node_free(Node *root) {
-    if (root->children) {
-        Node *child = *(root->children);
-        while(child) {
-            node_free(root->children);
-            child++;
-        }
+    if (!root) { return; }
+    Node *child = root->children;
+    Node *next_child = NULL;
+    while(child) {
+        next_child = child->next_child;
+        node_free(child);
+        child = next_child;
     }
     free(root);
 }
@@ -231,53 +271,49 @@ int token_string_equalp(char* string, Token *token) {
     return 1;
 }
 
+
+//@return boolean-like value; 1 succ 0 fail
+int parse_integer(Token *token, Node *node) {
+    if (!token || !node) {return 0 ;}
+    if (token->end - token->beginning == 1 && *(token->beginning) == '0') { 
+        node->type = NODE_TYPE_INTEGER;
+        node->value.integer = 0;
+    } else if ((node->value.integer = strtoll(token->beginning, NULL, 10)) != 0) { 
+        node->type = NODE_TYPE_INTEGER;
+    } else { return 0; }
+
+    return 1;
+}
+
+
 Error parse_expr(char *source, Node *result) {
-    Token *tokens = NULL;
-    Token *token_it = tokens;
+    size_t token_count = 0;
     Token current_token;
     current_token.next = NULL;
     current_token.beginning = source;
     current_token.end = source;
     Error err = ok;
-    while ((err = lex(current_token.end, &current_token)).type == ERROR_NONE) {
-        if (current_token.end - current_token.beginning == 0) { break; }
-        //conditional branch could be removed from the loop
-        if (tokens) {
-            // overwrite tokens ->next
-            token_it->next = token_create();
-            memcpy(token_it->next, &current_token, sizeof(Token));
-            token_it = token_it->next;
-        } else {
-            // overwrite tokens
-            tokens = token_create();
-            memcpy(tokens, &current_token, sizeof(Token));
-            token_it = tokens;
-        }
-    }
-
-    print_tokens(tokens);
 
     Node *root = calloc(1, sizeof(Node));
-    assert(root && "Could not allocate memory for AST Node");
-    token_it = tokens;
-    while (token_it) {
-        //TODO: Map constrcuts from the lang and attempt to create nodes
+    assert(root && "Could not allocate memory for AST Root");
+    root->type = NODE_TYPE_PROGRAM;
 
-        if (token_string_equalp(":", token_it)) {
-            printf("Found ':' at token\n");
-            if (token_it->next && token_string_equalp("=", token_it->next)) {
-                printf("Found assignment\n");
-            } else if (token_string_equalp("integer", token_it->next)) {
-                //TODO: make helper to check if string is type name
-                printf("Found a var declaration\n");
-            }
-        }
-        
-        token_it = token_it->next;
+    Node working_node;
+    while ((err = lex(current_token.end, &current_token)).type == ERROR_NONE) {
+        working_node.children = NULL;
+        working_node.next_child = NULL;
+        working_node.type = NODE_TYPE_NONE;
+        working_node.value.integer = 0;
+        size_t token_length = current_token.end - current_token.beginning;
+        if (token_length == 0) { break; }
+        if(parse_integer(&current_token, &working_node)) {
+        // look ahead for bin ops that inc ints
+        } 
+        printf("Found node: ");
+        print_node(&working_node, 0);
+        putchar('\n');
     }
 
-
-    free_tokens(tokens);
     return err;
 }
 
@@ -303,4 +339,4 @@ int main (int argc, char **argv)
 }
 
 
-// 1:12:29
+// 2:28:25
