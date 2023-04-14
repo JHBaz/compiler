@@ -136,6 +136,10 @@ void tokens_free(Token *root) {
     }
 }
 
+void print_token(Token t) {
+    printf("%.*s", t.end - t.beginning, t.beginning);
+}
+
 void print_tokens(Token *root) {
     size_t count = 1;
     while (root) {
@@ -187,10 +191,48 @@ typedef struct Node {
     struct Node *next_child;
 } Node;
 
-void print_node_impl(Node *node) {
+#define nonep(node) ((node).type == NODE_TYPE_NONE)
+#define integer(node) ((node).type == NODE_TYPE_INTEGER)
+
+/// @return Boolean-like value; 1 for succ, 0 for failure
+int node_compare(Node *a, Node *b) {
+    if (!a || !b) {
+        if (!a && !b) {
+            return 1;
+        }
+        return 0;
+    }
+    assert(NODE_TYPE_MAX == 3 && "node_compare() must handle all node types");
+    if(a->type != b->type) { return 0; }
+    switch (a->type) {
+    case NODE_TYPE_NONE:
+        if (nonep(*b)) {
+            return 1;
+        }
+        return 0;
+        break;
+    case NODE_TYPE_INTEGER:
+        if (a->value.integer == b->value.integer) {
+            return 1;
+        }
+        return 0;
+        break;
+    case NODE_TYPE_PROGRAM:
+        //COMPARE two programs
+        printf("TODO: compare two programs");
+        break;
+    }
+    return 0;
+}
+
+void print_node(Node *node, size_t indent_level) {
     if(!node) { return; }
-    //print type + value
-    assert(NODE_TYPE_MAX == 3 && " print_node() must handle all node types");
+    //print indent
+    //gcc main.c -o main -std=c99
+    for (size_t i = 0; i < indent_level; ++i) {
+        putchar(' ');
+    }
+    assert(NODE_TYPE_MAX == 3 && "print_node() must handle all node types");
     switch (node->type) {
         default:
             printf("UNKNOWN");
@@ -204,16 +246,6 @@ void print_node_impl(Node *node) {
             printf("PROGRAM");
             break;
     }
-}
-
-void print_node(Node *node, size_t indent_level) {
-    if(!node) { return; }
-    //print indent
-    //gcc main.c -o main -std=c99
-    for (size_t i = 0; i < indent_level; ++i) {
-        putchar(' ');
-    }
-    print_node_impl(node);
     putchar('\n');
     //print children
     Node *child = node->children;
@@ -222,9 +254,6 @@ void print_node(Node *node, size_t indent_level) {
         child = child->next_child;
     }
 }
-
-#define nonep(node) ((node).type == NODE_TYPE_NONE)
-#define integer(node) ((node).type == NODE_TYPE_INTEGER)
 
 // make more efficient, maybe keeping track of allocated pointers then free all in one go?
 void node_free(Node *root) {
@@ -243,8 +272,8 @@ void node_free(Node *root) {
 // |-- API to create new Binding
 //  -- API to add Binding to and exising environment
 typedef struct Binding {
-    char *id;
-    Node *value;
+    Node id;
+    Node value;
     struct Binding *next;
 } Binding;
 
@@ -253,8 +282,37 @@ typedef struct Environment {
     Binding *bind;
 } Environment;
 
-void environment_set () {
+Environment *environment_create(Environment *parent) {
+    Environment *env = malloc(sizeof(Environment));
+    assert(env && "Could not allocate memory for new environment");
+    env->parent = parent;
+    env->bind = NULL;
+    return env;
+}
 
+void environment_set (Environment env, Node id, Node value) {
+    Binding *binding = malloc(sizeof(Binding));
+    assert(binding && "Could not allocate new binding for environment");
+    binding->id = id;
+    binding->value = value;
+    binding->next = env.bind;
+    env.bind = binding;
+}
+
+Node environment_get (Environment env, Node id) {
+    Binding *binding_it = env.bind;
+    while (binding_it) {
+        if (node_compare(&binding_it->id, &id)) {
+            return binding_it->value;
+        }
+        binding_it = binding_it->next;
+    }
+    Node value;
+    value.type = NODE_TYPE_NONE;
+    value.children = NULL;
+    value.next_child = NULL;
+    value.value.integer = 0;
+    return value;
 }
 
 //@return Boolean-like value; 1 succ, 0 fail
@@ -271,7 +329,6 @@ int token_string_equalp(char* string, Token *token) {
     return 1;
 }
 
-
 //@return boolean-like value; 1 succ 0 fail
 int parse_integer(Token *token, Node *node) {
     if (!token || !node) {return 0 ;}
@@ -281,10 +338,8 @@ int parse_integer(Token *token, Node *node) {
     } else if ((node->value.integer = strtoll(token->beginning, NULL, 10)) != 0) { 
         node->type = NODE_TYPE_INTEGER;
     } else { return 0; }
-
     return 1;
 }
-
 
 Error parse_expr(char *source, Node *result) {
     size_t token_count = 0;
@@ -307,8 +362,24 @@ Error parse_expr(char *source, Node *result) {
         size_t token_length = current_token.end - current_token.beginning;
         if (token_length == 0) { break; }
         if(parse_integer(&current_token, &working_node)) {
-        // look ahead for bin ops that inc ints
-        } 
+            // look ahead for bin ops that inc ints
+            Token integer;
+            memcpy(&integer, &current_token, sizeof(Token));
+            err = lex(current_token.end, &current_token);
+            if (err.type != ERROR_NONE) {
+                return err;
+            }
+            // TODO: look for valid integer operator
+            // moperator environment to look up 
+            // operators instead of hard coding them
+            // user defined operators?
+        } else {
+            printf("Unrecognised token: ");
+            print_token(current_token);
+            putchar('\n');
+            // todo: check if valid symbol for variable envcironemnt and then
+            // attempt variable access, assignment, delaration or declaration withi init
+        }
         printf("Found node: ");
         print_node(&working_node, 0);
         putchar('\n');
