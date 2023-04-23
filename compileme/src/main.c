@@ -172,14 +172,20 @@ typedef struct Node {
     struct Node *next_child;
 } Node;
 
+Node *node_allocate() {
+    Node *node = calloc(1, sizeof(Node));
+    assert(node && " Could not allocate memory for AST node");
+    return node;
+}
+
 #define nonep(node)     ((node).type == NODE_TYPE_NONE)
 #define integerp(node)  ((node).type == NODE_TYPE_INTEGER)
 #define symbolp(node)   ((node).type == NODE_TYPE_SYMBOL)
 
+/// PARENT is modified, NEW_CHILD is shallow copied
 void node_add_child(Node *parent, Node *new_child) {
     if (!parent || !new_child) { return; }
-    Node *allocated_child = malloc(sizeof(Node));
-    assert(allocated_child && "Coulkd not allocate new child Node for AST");
+    Node *allocated_child = node_allocate();
     *allocated_child = *new_child;
     if (parent->children) {
         Node *child = parent->children;
@@ -223,8 +229,26 @@ int node_compare(Node *a, Node *b) {
     return 0;
 }
 
+Node *node_integer(long long value) {
+    Node *integer = node_allocate();
+    integer->type = NODE_TYPE_INTEGER;
+    integer->value.integer = value;
+    integer->children = NULL;
+    integer->next_child = NULL;
+    return value;
+}
+
+Node *node_symbol(char *symbol_string) {
+    Node *symbol = node_allocate();
+    symbol->type = NODE_TYPE_SYMBOL;
+    symbol->value.symbol = strdup(symbol_string);
+    symbol->children = NULL;
+    symbol->next_child = NULL;
+    return symbol;
+}
+
 void print_node(Node *node, size_t indent_level) {
-    if(!node) { return; }
+    if (!node) { return; }
     //print indent
     for (size_t i = 0; i < indent_level; ++i) {
         putchar(' ');
@@ -291,8 +315,8 @@ void node_free(Node *root) {
 // |-- API to create new Binding
 //  -- API to add Binding to and exising environment
 typedef struct Binding {
-    Node id;
-    Node value;
+    Node *id;
+    Node *value;
     struct Binding *next;
 } Binding;
 
@@ -309,12 +333,13 @@ Environment *environment_create(Environment *parent) {
     return env;
 }
 
-void environment_set (Environment env, Node id, Node value) {
+void environment_set (Environment env, Node *id, Node *value) {
     // overwrite existing value if ID is already bound in environment
     Binding *binding_it = env.bind;
     while (binding_it) {
-        if (node_compare(&binding_it->id, &id)) {
+        if (node_compare(binding_it->id, id)) {
             binding_it->value = value;
+            node_free(id);
             return;
         }
         binding_it = binding_it->next;
@@ -328,10 +353,10 @@ void environment_set (Environment env, Node id, Node value) {
     env.bind = binding;
 }
 
-Node environment_get (Environment env, Node id) {
+Node *environment_get (Environment env, Node *id) {
     Binding *binding_it = env.bind;
     while (binding_it) {
-        if (node_compare(&binding_it->id, &id)) {
+        if (node_compare(binding_it->id, &id)) {
             return binding_it->value;
         }
         binding_it = binding_it->next;
@@ -374,7 +399,28 @@ int parse_integer(Token *token, Node *node) {
     return 1;
 }
 
-Error parse_expr(char *source, char **end, Node *result) {
+typedef struct ParsingContext {
+    // struct ParsingContenxt *parent; -- maybe have parent here so do not need it in environment?
+    Environment *types;
+    Environment *variables;
+} ParsingContext;
+
+ParsingContext *parse_context_create() {
+    ParsingContext *ctx = calloc(1, sizeof(ParsingContext));
+    assert(ctx && "Could not allocate memory for parsing context");
+    ctx->types = environment_create(NULL);
+    environment_set(*ctx->types, *node_symbol("integer"), *node_integer(0));
+    // add built in types (integer, etc)
+    ctx->variables = environment_create(NULL);
+    return ctx;
+}
+
+Error parse_expr
+(ParsingContext *context, 
+    char *source, 
+    char **end, 
+    Node *result) 
+    {
     size_t token_count = 0;
     Token current_token;
     current_token.beginning = source;
@@ -423,9 +469,7 @@ Error parse_expr(char *source, char **end, Node *result) {
             // attempt variable access, assignment, delaration or declaration withi init
 
             err = lex(current_token.end, &current_token);
-            if (err.type != ERROR_NONE) {
-                return err;
-            }
+            if (err.type != ERROR_NONE) { return err; }
             *end = current_token.end;
             size_t token_length = current_token.end - current_token.beginning;
             if (token_length == 0) { break; }
@@ -489,16 +533,26 @@ int main (int argc, char **argv)
 
         // TODO: Create API to heap allocate program node
         // as well as add expressions as children
-        Node expression; 
-        memset(&expression,0,sizeof(Node));
+        ParsingContext *context = parse_context_create();
+        Node *program = node_allocate();
+        program->type = NODE_TYPE_PROGRAM;
+        Node *expression = node_allocate();
+        memset(expression,0,sizeof(Node));
         char *contents_it = contents;
-        Error err = parse_expr(contents_it, &contents_it, &expression);
-        print_node(&expression,0);
+        Error err = parse_expr(context, contents_it, &contents_it, expression);
+        node_add_child(program, expression);
         putchar('\n');
 
         print_error(err);
+        
+        print_node(program, 0);
 
+        node_free(program);
         free(contents);
     }
     return 0;
 }
+
+
+
+// 10409 4
