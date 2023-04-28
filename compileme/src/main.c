@@ -206,7 +206,8 @@ int node_compare(Node *a, Node *b) {
         }
         return 0;
     }
-    assert(NODE_TYPE_MAX == 3 && "node_compare() must handle all node types");
+    // assert is broken and im not sure why 
+    assert(NODE_TYPE_MAX == 7 && "node_compare() must handle all node types");
     if(a->type != b->type) { return 0; }
     switch (a->type) {
     case NODE_TYPE_NONE:
@@ -220,6 +221,26 @@ int node_compare(Node *a, Node *b) {
             return 1;
         }
         return 0;
+        break;
+    case NODE_TYPE_SYMBOL:
+        if(a->value.symbol && b->value.symbol) {
+            if (strcmp(a->value.symbol, b->value.symbol) == 0) {
+                return 1;
+            }
+            return 0;
+        } else if (!a->value.symbol && !b->value.symbol) {
+            return 1;
+        }
+        return 0;
+        break;
+    case NODE_TYPE_BINARAY_OPERATOR:
+        printf("TODO: nodecompare() bin op");
+        break;
+    case NODE_TYPE_VARIABLE_DECLARATION:
+        printf("TODO: nodecompare() NODE_TYPE_VARIABLE_DECLARATION");
+        break;
+    case NODE_TYPE_VARIABLE_DECLARATION_INTIALISED:
+        printf("TODO: nodecompare() NODE_TYPE_VARIABLE_DECLARATION_INTIALISED");
         break;
     case NODE_TYPE_PROGRAM:
         //COMPARE two programs
@@ -245,6 +266,17 @@ Node *node_symbol(char *symbol_string) {
     symbol->children = NULL;
     symbol->next_child = NULL;
     return symbol;
+}
+
+Node *node_symbol_from_buffer(char *buffer, size_t length) {
+assert(buffer && " Can not create symbol node from NULL buffer");
+    char *symbol_string = malloc(length + 1);
+    assert(symbol_string && "Could not allocate memory for symbol");
+    memcpy(symbol_string, buffer, length);
+    symbol_string[length] = '\0';
+    Node *symbol = node_allocate();
+    symbol->type = NODE_TYPE_SYMBOL;
+    symbol->value.symbol = symbol_string;
 }
 
 void print_node(Node *node, size_t indent_level) {
@@ -333,14 +365,21 @@ Environment *environment_create(Environment *parent) {
     return env;
 }
 
-void environment_set (Environment env, Node *id, Node *value) {
+// @retval 0 failure 
+// @retval 1 upon creation of new binding, 
+// @retval 2 upon value overwrite (ID unused)
+int environment_set (Environment *env, Node *id, Node *value) {
     // overwrite existing value if ID is already bound in environment
-    Binding *binding_it = env.bind;
+    if (!env || !id || !value) {
+        return 0;
+    }
+
+    Binding *binding_it = env->bind;
     while (binding_it) {
         if (node_compare(binding_it->id, id)) {
             binding_it->value = value;
             node_free(id);
-            return;
+            return 2;
         }
         binding_it = binding_it->next;
     }
@@ -349,24 +388,29 @@ void environment_set (Environment env, Node *id, Node *value) {
     assert(binding && "Could not allocate new binding for environment");
     binding->id = id;
     binding->value = value;
-    binding->next = env.bind;
-    env.bind = binding;
+    binding->next = env->bind;
+    env->bind = binding;
+    return 1;
 }
-
-Node *environment_get (Environment env, Node *id) {
+/// @ return boolean-like value 1 for success, 0 for failure
+int environment_get (Environment env, Node *id, Node *result) {
     Binding *binding_it = env.bind;
     while (binding_it) {
-        if (node_compare(binding_it->id, &id)) {
-            return binding_it->value;
+        if (node_compare(binding_it->id, id)) {
+            *result = *binding_it->value;
+            return 1;
         }
         binding_it = binding_it->next;
     }
-    Node value;
-    value.type = NODE_TYPE_NONE;
-    value.children = NULL;
-    value.next_child = NULL;
-    value.value.integer = 0;
-    return value;
+    return 0;
+}
+
+int environment_get_by_symbol(Environment env, char *symbol, Node *result) {
+    Node *symbol_node = node_symbol(symbol);
+    int status = environment_get(env, symbol_node, result);
+    free(symbol_node);
+    return status;
+    
 }
 
 //@return Boolean-like value; 1 succ, 0 fail
@@ -409,8 +453,10 @@ ParsingContext *parse_context_create() {
     ParsingContext *ctx = calloc(1, sizeof(ParsingContext));
     assert(ctx && "Could not allocate memory for parsing context");
     ctx->types = environment_create(NULL);
-    environment_set(*ctx->types, *node_symbol("integer"), *node_integer(0));
-    // add built in types (integer, etc)
+
+    if ((environment_set(ctx->types, node_symbol("integer"), node_integer(69))) == 0) {
+        printf("ERROR: Failed to set builtin type in environment");
+    }
     ctx->variables = environment_create(NULL);
     return ctx;
 }
@@ -446,24 +492,15 @@ Error parse_expr
 
         } else {
 
-            //todo: check for unary operatrors
+            //todo: check for unary prefix  operatrors
 
             // TODO: check that it iusnt aq bindary operator
             // shouldnt encounter left side first and peek forward, rathewr than encounter it at top level
 
-            Node symbol;
-            symbol.type = NODE_TYPE_SYMBOL;
-            symbol.children         = NULL;
-            symbol.next_child       = NULL;
-            symbol.value.symbol     = NULL;
 
-            char *symbol_string = malloc(token_length + 1);
-            assert(symbol_string && "Could not allocate memory for symbol");
-            memcpy(symbol_string, current_token.beginning, token_length);
-            symbol_string[token_length] = '\0';
-            symbol.value.symbol = symbol_string;
+            Node *symbol = node_symbol_from_buffer(current_token.beginning, token_length);
 
-            *result = symbol;
+            *result = *symbol;
 
             // todo: check if valid symbol for variable envcironemnt and then
             // attempt variable access, assignment, delaration or declaration withi init
@@ -534,6 +571,18 @@ int main (int argc, char **argv)
         // TODO: Create API to heap allocate program node
         // as well as add expressions as children
         ParsingContext *context = parse_context_create();
+        Node *integer_type_hopefully = node_allocate();
+        int status = environment_get_by_symbol(*context->types, "integer", integer_type_hopefully);
+        if (status == 0) {
+            printf("Failed to find node environment\n");
+
+        } else {
+            print_node(integer_type_hopefully,0);
+            putchar('\n');
+        }
+        
+        node_free(integer_type_hopefully);
+
         Node *program = node_allocate();
         program->type = NODE_TYPE_PROGRAM;
         Node *expression = node_allocate();
@@ -546,6 +595,7 @@ int main (int argc, char **argv)
         print_error(err);
         
         print_node(program, 0);
+        putchar('\n');
 
         node_free(program);
         free(contents);
@@ -555,4 +605,4 @@ int main (int argc, char **argv)
 
 
 
-// 10409 4
+// 20000 4
