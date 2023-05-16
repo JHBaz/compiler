@@ -54,6 +54,7 @@ void print_usage(char **argv) {
     printf("USAGE: %s <path_to_file_to_compiler>\n", argv[0]);
 }
 
+// todo: add file path, byte offset, etc. line number? 
 typedef struct Error {
     enum ErrorType {
         ERROR_NONE = 0,
@@ -182,19 +183,17 @@ Node *node_allocate() {
 #define integerp(node)  ((node).type == NODE_TYPE_INTEGER)
 #define symbolp(node)   ((node).type == NODE_TYPE_SYMBOL)
 
-/// PARENT is modified, NEW_CHILD is shallow copied
+/// PARENT is modified, NEW_CHILD pointer is used verbatim  
 void node_add_child(Node *parent, Node *new_child) {
     if (!parent || !new_child) { return; }
-    Node *allocated_child = node_allocate();
-    *allocated_child = *new_child;
     if (parent->children) {
         Node *child = parent->children;
         while (child->next_child) {
             child = child->next_child;
         }
-        child->next_child = allocated_child;
+        child->next_child = new_child;
     } else {
-        parent->children = allocated_child;
+        parent->children = new_child;
     }
 }
 
@@ -256,7 +255,7 @@ Node *node_integer(long long value) {
     integer->value.integer = value;
     integer->children = NULL;
     integer->next_child = NULL;
-    return value;
+    return integer;
 }
 
 Node *node_symbol(char *symbol_string) {
@@ -277,6 +276,7 @@ assert(buffer && " Can not create symbol node from NULL buffer");
     Node *symbol = node_allocate();
     symbol->type = NODE_TYPE_SYMBOL;
     symbol->value.symbol = symbol_string;
+    return symbol;
 }
 
 void print_node(Node *node, size_t indent_level) {
@@ -520,19 +520,23 @@ Error parse_expr
                 size_t token_length = current_token.end - current_token.beginning;
                 if (token_length == 0) { break; }
                 // TODO: look up type in types environment from parsing context.
+                Node *expected_type_sumbol = 
+                    node_symbol_from_buffer(current_token.beginning, token_length);
+                int status = environment_get(*context->types,expected_type_sumbol, result);
+                if (status == 0) {
+                    ERROR_PREP(err, ERROR_TYPE, "Invalid type within variable devlaration");
+                }
                 if (token_string_equalp("integer", &current_token)) {
-                    Node var_decl;
-                    var_decl.children = NULL;
-                    var_decl.next_child = NULL;
-                    var_decl.type = NODE_TYPE_VARIABLE_DECLARATION;
+                    Node *var_decl = node_allocate();
+                    var_decl->type = NODE_TYPE_VARIABLE_DECLARATION;
 
-                    Node type_node;
-                    memset(&type_node,0,sizeof(Node));
-                    type_node.type = NODE_TYPE_INTEGER;
-                    node_add_child(&var_decl, &type_node);
-                    node_add_child(&var_decl, &symbol);
+                    Node *type_node = node_allocate();
+                    type_node->type = NODE_TYPE_INTEGER;
 
-                    *result = var_decl;
+                    node_add_child(var_decl, type_node);
+                    node_add_child(var_decl, symbol);
+
+                    *result = *var_decl;
 
                     // TODO: look ahead for "=" assignment operator
 
@@ -571,18 +575,6 @@ int main (int argc, char **argv)
         // TODO: Create API to heap allocate program node
         // as well as add expressions as children
         ParsingContext *context = parse_context_create();
-        Node *integer_type_hopefully = node_allocate();
-        int status = environment_get_by_symbol(*context->types, "integer", integer_type_hopefully);
-        if (status == 0) {
-            printf("Failed to find node environment\n");
-
-        } else {
-            print_node(integer_type_hopefully,0);
-            putchar('\n');
-        }
-        
-        node_free(integer_type_hopefully);
-
         Node *program = node_allocate();
         program->type = NODE_TYPE_PROGRAM;
         Node *expression = node_allocate();
@@ -605,4 +597,4 @@ int main (int argc, char **argv)
 
 
 
-// 20000 4
+// 21506 4
