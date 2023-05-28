@@ -513,20 +513,23 @@ Error parse_expr
             
             if (token_string_equalp(":", &current_token)) {
                 err = lex(current_token.end, &current_token);
-                if (err.type != ERROR_NONE) {
-                    return err;
-                }
+                if (err.type != ERROR_NONE) { return err; }
                 *end = current_token.end;
                 size_t token_length = current_token.end - current_token.beginning;
                 if (token_length == 0) { break; }
-                // TODO: look up type in types environment from parsing context.
-                Node *expected_type_sumbol = 
+                
+                Node *expected_type_symbol = 
                     node_symbol_from_buffer(current_token.beginning, token_length);
-                int status = environment_get(*context->types,expected_type_sumbol, result);
-                if (status == 0) {
+                if (environment_get(*context->types,expected_type_symbol, result) == 0) {
                     ERROR_PREP(err, ERROR_TYPE, "Invalid type within variable devlaration");
-                }
-                if (token_string_equalp("integer", &current_token)) {
+                    printf("\nINVALID TYPE: \"%s\"\n", expected_type_symbol->value.symbol);
+                    print_node(expected_type_symbol, 0);
+                    return err;
+                } else {
+                    // printf("Found valid type: ");
+                    // print_node(expected_type_symbol, 0);
+                    // putchar('\n');
+
                     Node *var_decl = node_allocate();
                     var_decl->type = NODE_TYPE_VARIABLE_DECLARATION;
 
@@ -537,8 +540,8 @@ Error parse_expr
                     node_add_child(var_decl, symbol);
 
                     *result = *var_decl;
-
-                    // TODO: look ahead for "=" assignment operator
+                    // Node contents transfer ownership, var_decl is now hollow shell. 
+                    free(var_decl);
 
                     return ok;
                 }
