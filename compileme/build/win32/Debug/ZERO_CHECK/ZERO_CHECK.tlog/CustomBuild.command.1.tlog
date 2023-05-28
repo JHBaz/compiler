@@ -1,0 +1,10 @@
+^C:\USERS\JHBAR\GITHUB\COMPILER\COMPILEME\BUILD\CMAKEFILES\B5C650FD178FB20B4384CFB85743B1D3\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Jhbar/GitHub/compiler/compileme -BC:/Users/Jhbar/GitHub/compiler/compileme/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Jhbar/GitHub/compiler/compileme/build/COMPILER_2.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
