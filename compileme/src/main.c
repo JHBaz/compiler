@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <error.h>
+
 long file_size(FILE *file) {
     if (!file) {return 0; }
     fpos_t original = 0;
@@ -53,64 +55,6 @@ char *file_contents(char *path) {
 void print_usage(char **argv) {
     printf("USAGE: %s <path_to_file_to_compiler>\n", argv[0]);
 }
-
-// todo: add file path, byte offset, etc. line number? 
-typedef struct Error {
-    enum ErrorType {
-        ERROR_NONE = 0,
-        ERROR_ARGUMENTS,
-        ERROR_TYPE, 
-        ERROR_GENERIC,
-        ERROR_SYNTAX,
-        ERROR_TODO,
-        ERROR_MAX
-    } type;
-    char *msg;
-} Error;
-
-//lexing
-
-Error ok = { ERROR_NONE, NULL };
-
-void print_error(Error err) {
-    if (err.type == ERROR_NONE) {
-        return;
-    }
-    printf("ERROR: ");
-    assert(ERROR_MAX == 6);
-    switch (err.type) {
-        default:
-            printf("Unknown error type...");
-            break;
-        case ERROR_TODO:
-            printf("TODO (not implemented)");
-            break;
-        case ERROR_SYNTAX:
-            printf("invalid syntax");
-            break;
-        case ERROR_TYPE:
-            printf("Mismatched types");
-            break;
-        case ERROR_ARGUMENTS:
-            printf("invalid arguments");
-            break;
-        case ERROR_NONE:
-            break;
-        case ERROR_GENERIC:
-            break;
-    }
-    
-    if (err.msg) {
-        printf("  : %s\n", err.msg);
-    }
-}
-
-#define ERROR_CREATE(n, t, msg)         \
-    Error(n) = { (t), (msg) }
-
-#define ERROR_PREP(n, t, message)       \
-    (n).type = (t);                     \
-    (n).msg = (message);
 
 const char *whitespace = " \r\n";
 const char *delimiters = " \r\n,():";
@@ -600,4 +544,4 @@ int main (int argc, char **argv)
 
 
 
-// 21506 4
+// 5
