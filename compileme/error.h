@@ -1,7 +1,6 @@
 #ifndef COMPILER_ERROR_H
 #define COMPILER_ERROR_H
 
-#include <stddef.h>
 
 // todo: add file path, byte offset, etc. line number? 
 typedef struct Error {

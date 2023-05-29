@@ -7,6 +7,15 @@
     <ClCompile Include="C:\Users\Jhbar\GitHub\compiler\compileme\error.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Jhbar\GitHub\compiler\compileme\file_io.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Jhbar\GitHub\compiler\compileme\parser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Jhbar\GitHub\compiler\compileme\environment.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\Jhbar\GitHub\compiler\compileme\CMakeLists.txt" />
