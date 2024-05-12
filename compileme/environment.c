@@ -60,5 +60,4 @@ int environment_get_by_symbol(Environment env, char *symbol, Node *result) {
     int status = environment_get(env, symbol_node, result);
     free(symbol_node);
     return status;
-    
 }

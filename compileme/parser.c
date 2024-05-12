@@ -242,12 +242,7 @@ int parse_integer(Token *token, Node *node) {
     return 1;
 }
 
-Error parse_expr
-(ParsingContext *context, 
-    char *source, 
-    char **end, 
-    Node *result) 
-    {
+Error parse_expr(ParsingContext *context, char *source, char **end, Node *result) {
     size_t token_count = 0;
     Token current_token;
     current_token.beginning = source;
