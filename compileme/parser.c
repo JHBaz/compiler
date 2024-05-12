@@ -131,7 +131,7 @@ Node *node_integer(long long value) {
 Node *node_symbol(char *symbol_string) {
     Node *symbol = node_allocate();
     symbol->type = NODE_TYPE_SYMBOL;
-    symbol->value.symbol = strdup(symbol_string);
+    symbol->value.symbol = _strdup(symbol_string);
     symbol->children = NULL;
     symbol->next_child = NULL;
     return symbol;
@@ -272,8 +272,6 @@ Error parse_expr(ParsingContext *context, char *source, char **end, Node *result
 
             // TODO: check that it iusnt aq bindary operator
             // shouldnt encounter left side first and peek forward, rathewr than encounter it at top level
-
-
             Node *symbol = node_symbol_from_buffer(current_token.beginning, token_length);
 
             *result = *symbol;
@@ -315,6 +313,7 @@ Error parse_expr(ParsingContext *context, char *source, char **end, Node *result
                     node_add_child(var_decl, type_node);
                     node_add_child(var_decl, symbol);
 
+                    // TODO check for "=" intialisation operator
                     *result = *var_decl;
                     // Node contents transfer ownership, var_decl is now hollow shell. 
                     free(var_decl);
@@ -326,6 +325,8 @@ Error parse_expr(ParsingContext *context, char *source, char **end, Node *result
             printf("Unrecognised token: ");
             print_token(current_token);
             putchar('\n');
+
+            ERROR_PREP(err, ERROR_SYNTAX, "Unrecognised token reached during parsing")
 
             return err;
         }

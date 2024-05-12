@@ -10,7 +10,7 @@
 #include "environment.h"
 
 void print_usage(char **argv) {
-    printf("USAGE: %s <path_to_file_to_compiler>\n", argv[0]);
+    printf("USAGE TEST: %s <path_to_file_to_compiler>\n", argv[0]);
 }
 
 int main (int argc, char **argv) 
@@ -24,7 +24,7 @@ int main (int argc, char **argv)
     char *contents = file_contents(path);
 
     if (contents) {
-        //printf("Contents of %s: \n---\n\"%s\"\n---\n", path, contents);
+        printf("Contents of %s: \n---\n\"%s\"\n---\n", path, contents);
 
         // TODO: Create API to heap allocate program node
         // as well as add expressions as children
@@ -34,15 +34,19 @@ int main (int argc, char **argv)
         Node *expression = node_allocate();
         memset(expression,0,sizeof(Node));
         char *contents_it = contents;
-        Error err = parse_expr(context, contents_it, &contents_it, expression);
-        node_add_child(program, expression);
-        putchar('\n');
-
-        print_error(err);
-        
+        for (;;) {
+            Error err = parse_expr(context, contents_it, &contents_it, expression);
+            if (!(*contents_it)) {
+                break;
+            }
+            if (err.type != ERROR_NONE) {
+                print_error(err);
+                break;
+            }           
+            node_add_child(program, expression);
+        }
         print_node(program, 0);
         putchar('\n');
-
         node_free(program);
         free(contents);
     }

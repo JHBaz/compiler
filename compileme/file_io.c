@@ -6,47 +6,34 @@
 #include <errno.h>
 
 long file_size(FILE *file) {
-    if (!file) {return 0; }
-    fpos_t original = 0;
-    if (fgetpos(file, &original) != 0) {
-        printf("fgetpos() failed: %i", errno);
-        return 0;
-    }
-    fseek(file, 0, SEEK_END);
-    long out = ftell(file);
-    if (fsetpos(file, &original) != 0) {
-        printf("fsetpos() failed: %i\n", errno);
-    }
-    return out;
+    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file.
+    long size = ftell(file);  // Get the current position of the file pointer (end of file).
+    rewind(file);             // Reset the file pointer to the beginning of the file.
+    return size;
 }
 
 char *file_contents(char *path) {
-    FILE *file = fopen(path, "r");
-    if (!file) {
+    FILE *file = NULL;
+    errno_t err = fopen_s(&file, path, "r");
+    if (err != 0 || file == NULL) {
         printf("Could not open file at %s\n", path);
         return NULL;
     }
+
     long size = file_size(file);
     char *contents = malloc(size + 1);
-    assert(contents && " Could not allocate bugger for file contents");
-    char *write_it = contents;
-    size_t bytes_read = 0;
-    while (bytes_read < size) {
-        printf("Reading %ld bytes\n", size - bytes_read);
-        size_t bytes_read_this_it = fread(contents, 1, size - bytes_read, file);
-        if (ferror(file)) {
-            printf("Error while reading %i\n", errno);
-            free(contents);
-            return NULL;
-        }
+    assert(contents && "Could not allocate buffer for file contents");
 
-        bytes_read += bytes_read_this_it;
-        write_it += bytes_read_this_it;
+    size_t bytes_read = fread(contents, 1, size, file);
+    contents[bytes_read] = '\0'; // Null-terminate the string.
 
-        if (feof(file)) { 
-            break; 
-        }
+    if (ferror(file)) {
+        printf("Error while reading %i\n", errno);
+        free(contents);
+        fclose(file);
+        return NULL;
     }
-    contents[bytes_read] = '\0';
+
+    fclose(file);
     return contents;
 }

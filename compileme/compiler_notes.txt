@@ -1,0 +1,4 @@
+notes:
+cmake --build C:\Users\Jhbar\GitHub\compiler\compileme\build
+C:\Users\Jhbar\GitHub\compiler\compileme\build\Debug\COMPILER_2.exe
+C:\Users\Jhbar\GitHub\compiler\compileme\example.file
